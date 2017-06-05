@@ -16,7 +16,7 @@
          vxworks-install-dir "vxworks-6.9/host/x86-win32/bin;"
          vxworks-install-dir "vxworks-6.9/vxtest/src/scripts;"
          vxworks-install-dir "vxworks-6.9/host/binutils/x86-win32/bin;"
-         vxworks-install-dir "D:/WindRiver_vxw6.9.3/utilities-1.0/x86-win32/bin;"
+         vxworks-install-dir "utilities-1.0/x86-win32/bin;"
          vxworks-install-dir "workbench-3.3/foundation/x86-win32/bin;"
          vxworks-install-dir "workbench-3.3/wrsysviewer/host/x86-win32/bin;"
          vxworks-install-dir "workbench-3.3/wrwb/platform/x86-win32/eclipse;"
