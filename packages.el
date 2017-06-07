@@ -2,11 +2,11 @@
 ;;; vxworks6.el - library to build and configure vxworks-6 images
 ;;;
 
-;; Copyright 2015 Harmonic Software Systems Ltd
+;; Copyright 2015-2017 Harmonic Software Systems Ltd
 
 ;; Author : Ed Liversidge, Harmonic Software Systems Ltd
 ;; URL:
-;; Version: 0.1
+;; Version: 0.2
 ;; Package-Requires:
 
 ;; This program is free software; you can redistribute it and/or modify it under
@@ -37,7 +37,7 @@
 ;; and wasting valuable time.
 ;;
 ;; As a plus, combining with ecb (emacs code browser), gtags and semantic, it
-;; is possible to quickly navigate through the vxworks source code. 
+;; is possible to quickly navigate through the vxworks source code.
 ;;
 
 ;;
@@ -48,17 +48,17 @@
 ;;   Two emacs lisp files are required:
 ;;      a. vxworks6.el     - general lisp functions
 ;;      b. vxworks6env.el  - specific setup for a vxworks 6 installation
-;;  
+;;
 ;;   The vxworks6env.el file should be checked with your specific VxWorks
-;;   installation, as compiler versions could have changed. 
-;;  
+;;   installation, as compiler versions could have changed.
+;;
 ;;   To do this, open a vxworks development shell and type:
-;;  
+;;
 ;;     wrenv -p vxworks-6 -o print_env
-;;  
+;;
 ;;   Make sure the the environment in the shell matches the environment setup
 ;;   in vxworks6env.el. Could probaly write some lisp code to execute this and
-;;   generate the env file automatically, but for now this is a manual process. 
+;;   generate the env file automatically, but for now this is a manual process.
 ;;
 ;;   The vxworks6env.el file should be in the WIND_HOME installation directory:
 ;;
@@ -67,23 +67,23 @@
 ;; 2. Edit .emacs
 ;;
 ;;   add the following to your .emacs file:
-;;  
+;;
 ;;   (load-file "<path-to-file>/vxworks6.el")
 ;;   (setq vxworks-install-dir "<your vxworks install dir - with a trailing slash!>")
 ;;   (setq vxworks-workspace-dir "<your workspace directory - with a trailing slash!>")
-;;   (setup-vxworks6-env) 
+;;   (setup-vxworks6-env)
 ;;
 ;;  for example:
 ;;
 ;;   (load-file "~/.emacs.d/lisp/vxworks6.el")
 ;;   (setq vxworks-install-dir "C:/WindRiver_vxw6.9/")
 ;;   (setq vxworks-workspace-dir "C:/WindRiver_vxw6.9/workspace/")
-;;   (setup-vxworks6-env) 
+;;   (setup-vxworks6-env)
 ;;
 ;; if you dont set vxworks-install-dir you will be asked for it at startup
 ;;
 ;;
-;; OR for spacemacs
+;; **** OR for spacemacs  *****
 ;;
 ;; 3. Edit .spacemacs
 ;;
@@ -108,12 +108,12 @@
 ;; where WIND_HOME is your WindRiver installation directory
 ;;
 ;; The code does not detect if your WindRiver installation is not licenced.
-;; Things just wont work, so make sure the installation is licensed first. 
+;; Things just wont work, so make sure the installation is licensed first.
 ;;
 ;; Also, there are a few issues:
 ;;  - Older versions of wrtool (earlier than v4.3.0) when calling
 ;;    'wrtool prj vip create' will result in wrtool returning a
-;;    vague project creation error. 
+;;    vague project creation error.
 ;;
 ;;  - Not tested on Linux
 ;;
@@ -151,17 +151,23 @@ WIND_HOME (e.g. \"C:\/WindRiver_vxw6.9\/\" needs a trailing slash)")
 (defvar vxworks-vip-profile "PROFILE_DEVELOPMENT"
   "the profile to use for building the VIP")
 
-(defvar vxworks-vsb nil
-  "the VxWorks Source Build to be created or built")
+(defvar vxworks-vsb-dir nil
+  "the VxWorks Source Build directory to be created or built")
 
-(defvar vxworks-vip nil
-  "the VxWorks Image Project to be created or built")
+(defvar vxworks-vip-dir nil
+  "the VxWorks Image Project directory to be created or built")
 
 (defvar vxworks-dkm nil
   "the VxWorks Downloadable Kernel Module to be created or built")
 
 (defvar vxworks-component-list nil
   "a list of strings of VIP components. Output from wrtool")
+
+(defvar vxworks-compiler "gnu"
+  "the VxWorks compiler to use gnu or diab.")
+
+(defvar vxworks-cpu "VXATOM"
+  "the VxWorks target CPU e.g. NEHALEM")
 
 (defvar vxworks-bsp-list nil
   "a list of strings of BSPs. Output from wrtool")
@@ -179,8 +185,10 @@ WIND_HOME (e.g. \"C:\/WindRiver_vxw6.9\/\" needs a trailing slash)")
   (interactive)
   (if (eq vxworks-install-dir nil)
       (call-interactively 'vxworks-set-install-dir vxworks-install-dir))
+  (setq default-directory vxworks-install-dir)
   (if (eq vxworks-workspace-dir nil)
       (call-interactively 'vxworks-set-workspace-dir vxworks-workspace-dir))
+  ;; set the default directory, to allow the rest of the code to start here. 
   (setq load-dir-file (format "%svxworks6env.el" vxworks-install-dir))
   (load-file load-dir-file)
   (global-set-key [f10] 'vxworks-compile-vip)
@@ -197,7 +205,7 @@ WIND_HOME (e.g. \"C:\/WindRiver_vxw6.9\/\" needs a trailing slash)")
 current workspace. Note that no checking is made to make sure a VSB had been 
 selected."
   (interactive "DSelect a VSB: ")
-  (setq vxworks-vsb D))
+  (setq vxworks-vsb-dir D))
 
 
 (defun vxworks-compile-vsb ()
@@ -205,25 +213,24 @@ selected."
 previously been built from workbench, as this first build will generate
 all the makefiles."
   (interactive)
-  (if (eq vxworks-vsb nil)
-      (call-interactively 'vxworks-set-vsb vxworks-vsb))
+  (if (eq vxworks-vsb-dir nil)
+      (call-interactively 'vxworks-set-vsb vxworks-vsb-dir))
   (setq this-buffer-dir default-directory)
-  (setq compile-dir vxworks-vsb)
+  (setq compile-dir vxworks-vsb-dir)
   (cd compile-dir)
   (setq compile-command "make JOBS=8")
   (call-interactively 'compile)
   (cd this-buffer-dir))
 
-;; TODO update to select compiler
 ;; diab flag: -g -Xoptimized-debug-off
 (defun vxworks-compile-this-vsb-file ()
   "Compiles this file (and any modifed files in this directory) in the VSB, 
 with debug enabled. Currently fixed for diab compiler."
   (interactive)
-  (if (eq vxworks-vsb nil)
-      (call-interactively 'vxworks-set-vsb vxworks-vsb))
+  (if (eq vxworks-vsb-dir nil)
+      (call-interactively 'vxworks-set-vsb vxworks-vsb-dir))
   (setq this-buffer-dir default-directory)
-  (setq compile-command (format "make CPU=PENTIUM4 ADDED_CFLAGS+=\"-g -O0\" TOOL=gnu VSB_DIR=%s" vxworks-vsb))
+  (setq compile-command (format "make CPU=%s ADDED_CFLAGS+=\"-g -O0\" TOOL=%s VSB_DIR=%s" vxworks-cpu vxworks-compiler vxworks-vsb-dir))
   (call-interactively 'compile)
   (cd this-buffer-dir))
 
@@ -233,25 +240,25 @@ with debug enabled. Currently fixed for diab compiler."
 ;;
 
 (defun vxworks-set-vip (D)
-  "Set the current VxWorks Image Project (VIP) to point to a directory in the 
-current workspace. Note that no checking is made to make sure a VIP has been 
+  "Set the current VxWorks Image Project (VIP) to point to a directory in the
+current workspace. Note that no checking is made to make sure a VIP has been
 selected."
   (interactive "DSelect a VIP: ")
-  (setq vxworks-vip D))
+  (setq vxworks-vip-dir D))
 
 
 ;;
 ;;  vxprj build doesnt seem to work very well
 ;;
 (defun vxworks-compile-vip ()
-  "Cds to the VIP directory and builds the VxWorks VIP image using wrtool. "
+  "Cds to the VIP directory and builds the VxWorks VIP image using make. "
   (interactive)
-  (if (eq vxworks-vip nil)
-      (call-interactively 'vxworks-set-vip vxworks-vip))
+  (if (eq vxworks-vip-dir nil)
+      (call-interactively 'vxworks-set-vip vxworks-vip-dir))
   (if (eq vxworks-target nil)
       (call-interactively 'vxworks-set-target vxworks-target))
   (setq this-buffer-dir default-directory)
-  (setq compile-dir vxworks-vip)
+  (setq compile-dir vxworks-vip-dir)
   (cd compile-dir)
   (setq compile-command "make BUILD_SPEC=default DEBUG_MODE=0 TRACE=1 JOBS=4") 
   (call-interactively 'compile)
@@ -292,24 +299,24 @@ selected."
   (setq vxworks-vip-bsp (ido-completing-read
                          "Select a BSP: "
                          vxworks-bsp-list)))
-       
 
-;; TODO: FIX for VxWorks 6
+
+;; OPEN: FIX for VxWorks 6
 (defun vxworks-add-file (s)
   "Adds the specified file to a specified project. wrtool will create the file 
 if it does not already exist."
   (interactive "sName of file: ")
   (set-workspace-project-list)
   (setq vxworks-project (ido-completing-read
-						 "Select a Project to add the file to: "
-						 vxworks-workspace-projects))
+                         "Select a Project to add the file to: "
+                         vxworks-workspace-projects))
   (setq this-buffer-dir default-directory)
-  (setq compile-dir (format "%s" vxworks-workspace-dir))
+  (setq compile-dir (format "%s%s" vxworks-workspace-dir vxworks-project))
   (cd compile-dir)
-  (message "Adding %s to %s" s vxworks-project)
-  (shell-command (format "wrtool -data %s prj file add %s %s"
-                         vxworks-workspace-dir s vxworks-project))
+  (message "compile-dir %s" compile-dir)
   (find-file (format "%s%s/%s" vxworks-workspace-dir vxworks-project s))
+  (message "Adding %s to %s" s compile-dir)
+  (shell-command (format "vxprj file add %s" s))
   (cd this-buffer-dir))
 
 ;; TODO: FIX for VxWorks 6
@@ -318,8 +325,8 @@ if it does not already exist."
   (interactive "sName of file: ")
   (set-workspace-project-list)
   (setq vxworks-project (ido-completing-read
-						 "Select a Project to delete the file from: "
-						 vxworks-workspace-projects))
+                         "Select a Project to delete the file from: "
+                         vxworks-workspace-projects))
   (setq this-buffer-dir default-directory)
   (setq compile-dir (format "%s" vxworks-workspace-dir))
   (cd compile-dir)
@@ -335,16 +342,16 @@ if it does not already exist."
 ;;
 ;; TODO: FIX for VxWorks 6
 (defun vxworks-add-subproject-to-project ()
-  "Associates an existing project \(e.g. a DKM\) as a subproject to an existing project 
+  "Associates an existing project \(e.g. a DKM\) as a subproject to an existing project
 \(e.g.\) a VIP."
   (interactive)
   (set-workspace-project-list)
   (setq vxworks-subproject (ido-completing-read
-							"Select a Sub Project: "
-							vxworks-workspace-projects))
+                            "Select a Sub Project: "
+                            vxworks-workspace-projects))
   (setq vxworks-project (ido-completing-read
-						 "Select a Project to associate the Sub Project to: "
-						 vxworks-workspace-projects))
+                         "Select a Project to associate the Sub Project to: "
+                         vxworks-workspace-projects))
   (setq this-buffer-dir default-directory)
   (setq compile-dir (format "%s" vxworks-workspace-dir))
   (cd compile-dir)
@@ -352,19 +359,19 @@ if it does not already exist."
   (shell-command (format "wrtool -data %s prj subproject add %s %s"
                          vxworks-workspace-dir vxworks-subproject vxworks-project))
   (cd this-buffer-dir))
-  
-;; TODO: FIX for VxWorks 6  
+
+;; TODO: FIX for VxWorks 6
 (defun vxworks-remove-subproject-from-project ()
-  "Removes an existing subproject \(e.g. a DKM\) from an existing project 
+  "Removes an existing subproject \(e.g. a DKM\) from an existing project
 \(e.g.\) a VIP."
   (interactive)
   (set-workspace-project-list)
   (setq vxworks-subproject (ido-completing-read
-							"Select a Sub Project: "
-							vxworks-workspace-projects))
+                            "Select a Sub Project: "
+                            vxworks-workspace-projects))
   (setq vxworks-project (ido-completing-read
-						 "Select a Project from which to remove the sub project: "
-						 vxworks-workspace-projects))
+                         "Select a Project from which to remove the sub project: "
+                         vxworks-workspace-projects))
   (setq this-buffer-dir default-directory)
   (setq compile-dir (format "%s" vxworks-workspace-dir))
   (cd compile-dir)
@@ -372,8 +379,6 @@ if it does not already exist."
   (shell-command (format "wrtool -data %s prj subproject remove %s %s"
                          vxworks-workspace-dir vxworks-subproject vxworks-project))
   (cd this-buffer-dir))
-  
-
 
 
 
@@ -386,8 +391,8 @@ if it does not already exist."
 ;;
 
 (defun vxworks-set-dkm ()
-  "Set the current Downloadable Kernel Module (DKM) to point to a directory in the 
-current workspace. Note that no checking is made to make sure a DKM has been 
+  "Set the current Downloadable Kernel Module (DKM) to point to a directory in the
+current workspace. Note that no checking is made to make sure a DKM has been
 selected."
   (interactive)
   (set-workspace-project-list)
@@ -395,18 +400,18 @@ selected."
                      "Select a DKM: "
                      vxworks-workspace-projects nil t "")))
 
-;; TODO: FIX for VxWorks 6
+;; DONE: FIX for VxWorks 6
 (defun vxworks-create-dkm (s)
   "Create a DKM in the workspace directory"
   (interactive "sVxWorks DKM to create: ")
   (setq vxworks-dkm s)
-  (if (eq vxworks-vsb nil)
-      (call-interactively 'vxworks-set-vsb vxworks-vsb))
+  (if (eq vxworks-vip-dir nil)
+      (call-interactively 'vxworks-set-vip vxworks-vip-dir))
   (setq this-buffer-dir default-directory)
   (setq compile-dir (format "%s" vxworks-workspace-dir))
   (cd compile-dir)
-  (shell-command (format "wrtool -data %s prj dkm create -force -vsb %s %s"
-                         vxworks-workspace-dir vxworks-vsb vxworks-dkm))
+  (shell-command (format "vxprj dkm create -force %s %s"
+                         vxworks-vip-dir vxworks-dkm))
   (cd this-buffer-dir))
 
 ;;
@@ -421,7 +426,7 @@ selected."
   (setq this-buffer-dir default-directory)
   (setq compile-dir (format "%s%s" vxworks-workspace-dir vxworks-dkm))
   (cd compile-dir)  
-  (setq compile-command (format "wrtool -data %s prj build" vxworks-workspace-dir))
+  (setq compile-command (format "make"))
   (call-interactively 'compile)
   (cd this-buffer-dir))
 
@@ -431,30 +436,26 @@ selected."
 ;;
 ;; VIP creation function
 ;;
-;; wrtool prj vip create doesnt work from emacs shell for some
-;; wrtool versions (< 4.3.0?)
-;;
-;; So can resort to vxprj. Also, vxprj wont create a WB aware project,
-;; it cannot be imported.  
-;;
-;; TODO: FIX for VxWorks 6
+;; DONE: FIX for VxWorks 6
 (defun vxworks-create-vip (vip-to-create)
   "Creates from scratch the specified VIP (VxWorks Image Project). 
 Sets the current vip to this one. "
   (interactive "sName of VIP to create: ")
-  (if (eq vxworks-vsb nil)
-      (call-interactively 'vxworks-set-vsb vxworks-vsb))
+  ;; commented out, default to product vsb
+  ;;(if (eq vxworks-vsb-dir nil)
+  ;;    (call-interactively 'vxworks-set-vsb vxworks-vsb-dir))
   (if (eq vxworks-vip-bsp nil)
       (call-interactively 'vxworks-set-vip-bsp vxworks-vip-bsp))
   (setq this-buffer-dir default-directory)
   (setq compile-dir (format "%s" vxworks-workspace-dir))
   (cd compile-dir)
-  (setq compile-command (format "wrtool -data %s prj vip create -force -debug -profile %s -vsb %s %s diab %s"
-                                vxworks-workspace-dir vxworks-vip-profile
-                                vxworks-vsb vxworks-vip-bsp vip-to-create))
-  ;;(setq compile-command (format "vxprj create -force -debug -profile %s -vsb %s %s diab %s" vxworks-vip-profile vxworks-vsb vxworks-vip-bsp vip-to-create))
+  ;; use the default vsb, could add -vsb %s with vxworks-vsb-dir
+  (setq compile-command (format "vxprj create -smp -force -debug -profile %s %s %s %s"
+                                vxworks-vip-profile
+                                vxworks-vip-bsp vxworks-compiler vip-to-create))
+  ;;(setq compile-command (format "vxprj create -force -debug -profile %s -vsb %s %s diab %s" vxworks-vip-profile vxworks-vsb-dir vxworks-vip-bsp vip-to-create))
   (call-interactively 'compile)
-  (setq vxworks-vip vip-to-create) 
+  (setq vxworks-vip-dir vip-to-create) 
   (cd this-buffer-dir))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -465,8 +466,8 @@ Sets the current vip to this one. "
 (defun vxworks-vip-component-add ()
   "Add a component to the current VIP"
   (interactive)
-  (if (eq vxworks-vip nil)
-      (call-interactively 'set-vip vxworks-vip))
+  (if (eq vxworks-vip-dir nil)
+      (call-interactively 'set-vip vxworks-vip-dir))
   ;; TODO change this to detect if this is a new VIP and rescan
   ;; calling set-vip-components-list
   (if (eq vxworks-component-list nil)
@@ -478,7 +479,7 @@ Sets the current vip to this one. "
                               vxworks-component-list nil t ""))
   (message "Adding component %s. Please wait..." vip-component-to-add)
   (shell-command (format "wrtool -data %s prj vip component add %s%s %s"
-                  vxworks-workspace-dir vxworks-workspace-dir vxworks-vip vip-component-to-add))
+                  vxworks-workspace-dir vxworks-workspace-dir vxworks-vip-dir vip-component-to-add))
   (message "Done")
   (cd this-buffer-dir)
   ;; display results
@@ -488,8 +489,8 @@ Sets the current vip to this one. "
 (defun vxworks-vip-component-remove ()
   "Remove a component from the current VIP"
   (interactive)
-  (if (eq vxworks-vip nil)
-      (call-interactively 'set-vip vxworks-vip))
+  (if (eq vxworks-vip-dir nil)
+      (call-interactively 'set-vip vxworks-vip-dir))
   ;; TODO change this to detect if this is a new VIP and rescan
   ;; calling set-vip-components-list
   (if (eq vxworks-component-list nil)
@@ -501,7 +502,7 @@ Sets the current vip to this one. "
                                  vxworks-component-list nil t ""))
   (message "Removing component %s. Please wait..." vip-component-to-remove)
   (shell-command (format "wrtool -data %s prj vip component remove %s%s %s"
-                         vxworks-workspace-dir vxworks-workspace-dir vxworks-vip vip-component-to-remove))
+                         vxworks-workspace-dir vxworks-workspace-dir vxworks-vip-dir vip-component-to-remove))
   (message "Done")
   (cd this-buffer-dir)
   ;; display results
@@ -518,7 +519,8 @@ Sets the current vip to this one. "
 ;; we dont want to call this function again, unless you have changed to
 ;; building a different VIP. 
 ;;
-;; TODO: FIX for VxWorks 6
+;; DONE: FIX for VxWorks 6.
+;;
 (defun set-vip-bsp-list ()
   "Get a list of possible BSPs that we can build a VIP from"
   (interactive)
@@ -527,7 +529,7 @@ Sets the current vip to this one. "
   (message "Scanning for BSPs. Please wait...")
   (setq vxworks-bsp-list-shell-output
         (shell-command-to-string
-         (format "wrtool -data . prj vip listBsps")))
+         (format "vxprj vsb listBsps")))
   (setq vxworks-bsp-list (split-string vxworks-bsp-list-shell-output))
   ;; need to remove first two elements : "Valid" and "BSPs". This was
   ;; spouted out by wrtool
@@ -541,83 +543,32 @@ Sets the current vip to this one. "
   "Get a list of possible components from a VIP as a list of strings. Note, wrtool 
    can be quite slow (30s) to produce results. "
   (interactive)
-  (if (eq vxworks-vip nil)
-      (call-interactively 'set-vip vxworks-vip))
+  (if (eq vxworks-vip-dir nil)
+      (call-interactively 'set-vip vxworks-vip-dir))
   (setq this-buffer-dir default-directory)
   (cd vxworks-workspace-dir)
-  (message "Scanning VIP %s for components. Please wait..." vxworks-vip)
+  (message "Scanning VIP %s for components. Please wait..." vxworks-vip-dir)
   (setq vxworks-component-list-shell-output
         (shell-command-to-string
          (format "wrtool -data %s prj vip component list %s%s all"
-                 vxworks-workspace-dir vxworks-workspace-dir vxworks-vip)))
+                 vxworks-workspace-dir vxworks-workspace-dir vxworks-vip-dir)))
   (setq vxworks-component-list (split-string vxworks-component-list-shell-output))
   (message "Done")
   (cd this-buffer-dir)) 
 
-;; TODO: FIX for VxWorks 6
+;; DONE: FIX for VxWorks 6. Use ls rather than wrtool
 (defun set-workspace-project-list ()
-  "Get a list of workspace projects from the wrtool as a list of strings."
-  ;; refresh the workspace first, projects may have been deleted.
-  ;; this causes java.lang.NullPointerException. Great. 
-  ;;(shell-command (format "wrtool -data %s prj refresh" vxworks-workspace-dir))
+  "Get a list of workspace projects using ls, as a list of strings."
   (message "Getting project list. Please wait...")
   (setq wrtool-prj-list-shell-output
-        (shell-command-to-string (format "wrtool -data %s prj list"
-                                         vxworks-workspace-dir))) 
-  (message "Done")
-  ;; delete everything from within brackets
-  (strip-wrtool-prj-list-shell-output))
-
-;; TODO: FIX for VxWorks 6
-(defun strip-wrtool-prj-list-shell-output ()
-  "take the string from wrtool prj list and get rid of all the guff in the brackets,
-   returning a list of strings."
-  (setq vxworks-workspace-projects nil)  
+        (shell-command-to-string (format "ls %s"
+                                         vxworks-workspace-dir)))
+  (setq vxworks-workspace-projects nil)
   (setq wrtool-prj-list-shell-output
         (replace-regexp-in-string "\n" " " wrtool-prj-list-shell-output))
-  ;; s1 and s2 are local search indexes
-  (let (s1 s2)
-    (setq s1 0)    
-    (setq s2 (string-match "(" wrtool-prj-list-shell-output))
-    ;; move search one char to left, we dont want the (
-    (setq s2 (- s2 1))
-    (while (not (eq s2 nil))
-      ;; concat the directory names, using substring to remove the stuff in the brackets
-      (setq vxworks-workspace-projects (concat vxworks-workspace-projects
-            (substring wrtool-prj-list-shell-output s1 s2)))
-      ;; move the start point along for the next search
-      (setq s1 (string-match ")" wrtool-prj-list-shell-output s2))
-      ;; move search one char right, dont want )
-      (setq s1 (+ 1 s1))
-        (setq s2 (string-match "(" wrtool-prj-list-shell-output s1))
-      )
-    ;; now we have a big string, split them up
-    (setq vxworks-workspace-projects (split-string vxworks-workspace-projects))))
+  (setq vxworks-workspace-projects (split-string wrtool-prj-list-shell-output))
+  (message "Done"))
 
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-;; auto configure semantic to look for vxworks header files
-;;
-;; this is quite specific to versioned directories
-;; doesnt include any rtp code yet.
-;; 
-;; calling from my .emacs doesnt seem to work. Seems that it only works when a
-;; target file is in the buffer. 
-;;
-;; can check with (semantic-c-describe-environment)
-;;
-;; NOTE: dont really need this if semantic is working with GTAGS
-;;
-(defun setup-vxworks-includes ()
-  "Adds vxworks include paths to semantic"
-  (interactive)
-  (if (eq semantic-mode t)
-      (progn
-        (semantic-add-system-include
-         (format "%svxworks-7/pkgs/os/core/kernel-1.0.9.0/h" vxworks-install-dir) 'c-mode)
-        (semantic-add-system-include
-         (format "%svxworks-7/pkgs/os/core/io-1.0.1.3/h" vxworks-install-dir) 'c-mode))))
 
 
 ;;; vxworks.el ends here

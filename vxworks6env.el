@@ -1,8 +1,40 @@
 ;;
+;; Copyright 2015-2017 Harmonic Software Systems Ltd
+;;
+;; Author : Ed Liversidge, Harmonic Software Systems Ltd
+;; URL:
+;; Version: 0.2
+;; Package-Requires:
+;;
+;; This program is free software; you can redistribute it and/or modify it under
+;; the terms of the GNU General Public License as published by the Free Software
+;; Foundation; either version 2, or (at your option) any later version.
+;;
+;; This program is distributed in the hope that it will be useful, but WITHOUT
+;; ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+;; FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+;; details.
+;;
+;; You should have received a copy of the GNU General Public License along with
+;; GNU Emacs; see the file COPYING.  If not, write to the Free Software
+;; Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 ;; Setups up the paths for a vxWorks 6 installation. 
 ;;
-;; requires code from vxworks.el
 ;;
+;;
+;; This file is taken from the results of performing the following:
+;;
+;; cd <WIND_HOME> - the windriver installation directory
+;; wrenv -p vxworks-6.9 -o env.txt
+;;
+;; then make sure the environment variables match the settings in this file.
+;;
+;; this file needs to be moved to the windriver installation directory.
+;;
+;; please see $HOME/.emacs.d/private/vxwoorks6/packages.el for further instructions,
+;; but you should be able to call setup-vxworks6-env to get things going.
+;;
+;; This setup exactly matches that for VxWorks-6.9.3
 ;;
 
 (if (eq vxworks-install-dir nil)
