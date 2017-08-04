@@ -5,8 +5,8 @@
 ;; Copyright 2015-2017 Harmonic Software Systems Ltd
 
 ;; Author : Ed Liversidge, Harmonic Software Systems Ltd
-;; URL:
-;; Version: 0.2
+;; URL: harmonicss.co.uk
+;; Version: 0.3
 ;; Package-Requires:
 
 ;; This program is free software; you can redistribute it and/or modify it under
@@ -36,76 +36,45 @@
 ;; vxworks code from the touch of a button, rather than dragging the mouse
 ;; and wasting valuable time.
 ;;
-;; As a plus, combining with ecb (emacs code browser), gtags and semantic, it
+;; As a plus, combining with helm, gtags and semantic, it
 ;; is possible to quickly navigate through the vxworks source code.
 ;;
 
 ;;
-;; INSTALLATION
+;; INSTALLATION for SPACEMACS
 ;;
-;; 1. Setup the vxworks environment file
+;; 1. Edit .spacemacs
 ;;
-;;   Two emacs lisp files are required:
-;;      a. vxworks6.el     - general lisp functions
-;;      b. vxworks6env.el  - specific setup for a vxworks 6 installation
+;;    enable in your ~/.spacemacs by adding vxworks6 to dotspacemacs-configuration-layers
 ;;
-;;   The vxworks6env.el file should be checked with your specific VxWorks
-;;   installation, as compiler versions could have changed.
+;; 2. Restart Spacemacs to load the new config
 ;;
-;;   To do this, open a vxworks development shell and type:
+;; 3. Create the vxworks6env.el script from wrenv.
 ;;
-;;     wrenv -p vxworks-6 -o print_env
+;;    * NOTE * This only needs to be done once for each VxWorks install.
 ;;
-;;   Make sure the the environment in the shell matches the environment setup
-;;   in vxworks6env.el. Could probaly write some lisp code to execute this and
-;;   generate the env file automatically, but for now this is a manual process.
+;;    SPC : execute-wrenv
 ;;
-;;   The vxworks6env.el file should be in the WIND_HOME installation directory:
+;;    This will prompt for the vxworks-install-dir, which should be set to your
+;;    vxworks installation directory, e.g. c:\WindRiver_vxw6.9
 ;;
-;;     e.g. C:/WindRiver_vxw6.9
+;;    The vxworks6env.el file will be auto created in this directory, by executing
+;;    wrenv and parsing into emacs lisp environment varibles.
 ;;
-;; 2. Edit .emacs
+;; 4. Call the setup to use 
 ;;
-;;   add the following to your .emacs file:
+;;    SPC : setup-vxworks6-env
 ;;
-;;   (load-file "<path-to-file>/vxworks6.el")
-;;   (setq vxworks-install-dir "<your vxworks install dir - with a trailing slash!>")
-;;   (setq vxworks-workspace-dir "<your workspace directory - with a trailing slash!>")
-;;   (setup-vxworks6-env)
+;;    e.g.
 ;;
-;;  for example:
+;;    SPC-: (or SPC SPC for v0.2 or higher)
 ;;
-;;   (load-file "~/.emacs.d/lisp/vxworks6.el")
-;;   (setq vxworks-install-dir "C:/WindRiver_vxw6.9/")
-;;   (setq vxworks-workspace-dir "C:/WindRiver_vxw6.9/workspace/")
-;;   (setup-vxworks6-env)
-;;
-;; if you dont set vxworks-install-dir you will be asked for it at startup
-;;
-;;
-;; **** OR for spacemacs  *****
-;;
-;; 3. Edit .spacemacs
-;;
-;;  enable in your ~/.spacemacs by adding vxworks6 to dotspacemacs-configuration-layers
-;;
-;;  then call
-;;   setup-vxworks6-env
-;;
-;;  e.g.
-;;
-;;  SPC-: (or SPC SPC for v0.2 or higher)
-;;
-;;   setup-vxworks6-env
+;;    setup-vxworks6-env
 ;;
 ;; if you dont set vxworks-install-dir you will be asked for it at startup
 ;;
 ;; ISSUES
 ;;
-;; Currently this code makes a few assumptions:
-;;  - vxworks6env.el exists and is in WIND_HOME
-;;
-;; where WIND_HOME is your WindRiver installation directory
 ;;
 ;; The code does not detect if your WindRiver installation is not licenced.
 ;; Things just wont work, so make sure the installation is licensed first.
@@ -166,23 +135,106 @@ WIND_HOME (e.g. \"C:\/WindRiver_vxw6.9\/\" needs a trailing slash)")
 (defvar vxworks-compiler "gnu"
   "the VxWorks compiler to use gnu or diab.")
 
-(defvar vxworks-cpu "VXATOM"
-  "the VxWorks target CPU e.g. NEHALEM")
+(defvar vxworks-cpu "PPC32"
+  "the VxWorks target CPU e.g. NEHALEM, VXATOM, PPC85XX PPC32")
+
+(defvar vxworks-cpu-variant "_ppc85XX_e6500"
+  "the VxWorks target CPU variant")
 
 (defvar vxworks-bsp-list nil
   "a list of strings of BSPs. Output from wrtool")
 
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-;; ENTRY POINT - call this first
+;; INITIAL SETUP - call this ONCE for each new VxWorks install
+;;
+;; This will call wrenv and create a vxworks6env.el file, which will be read 
+;; by spacemacs to setup the enviroment for building vxWorks code. 
+;;
+(defun execute-wrenv ()
+  "Executes wrenv and opens the resulting text file for processing"
+  (interactive)
+  (if (eq vxworks-install-dir nil)
+      (call-interactively 'vxworks-set-install-dir vxworks-install-dir))
+  (setq default-directory vxworks-install-dir)
+
+  (call-process "wrenv" nil "vxworks6env.el" nil "-p" "vxworks-6.9" "-f" "bat" "-o" "print_env")
+  (convert-file-to-emacs-env)
+  )
+
+(defun convert-line-to-emacs-env ()
+  "Converts the current line to an emacs setenv string"
+
+  ;;  change:
+  ;;    set Path=C:\WindRiver_vx
+  ;;  to:
+  ;;    (setenv "PATH" "C:\...)
+  ;;
+
+  (beginning-of-line)
+  (if (search-forward "set" nil t)
+      (progn 
+        (backward-char 3)
+        (insert "(")
+        (forward-char 3)
+        (insert "env")
+        (forward-char 1)
+        (insert "\"")
+        (search-forward "=" nil t)
+        (backward-char 1)
+        (delete-char 1)
+        (insert "\" \"")
+        (end-of-line)
+        (insert "\")"))))
+
+(defun convert-file-to-emacs-env ()
+  "Converts the output from wrenv to emacs setenv format"
+  (interactive)
+  (with-current-buffer "vxworks6env.el"
+    (goto-char (point-min))
+    (convert-line-to-emacs-env)
+    (while (= 0 (forward-line 1))
+      (convert-line-to-emacs-env))
+
+    ;; replace \ with /
+    (goto-char (point-min))
+    (while (search-forward "\\" nil t)
+        (progn
+          (backward-char 1)
+          (delete-char 1)
+          (insert "/")))
+
+    ;; replace 'Path' with 'PATH'
+    (goto-char (point-min))
+    (search-forward "Path" nil t)
+    (replace-match "PATH")
+
+    ;; insert some comments
+    (goto-char (point-min))
+    (insert ";;\n")
+    (insert (format ";; VxWorks Enviroment for %s, for Spacemacs\n" vxworks-install-dir))
+    (insert (format ";; Created %s\n" (current-time-string)))
+    (insert ";;\n")
+
+    (write-file "vxworks6env.el")))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; ENTRY POINT - call this to use (make sure vxworks6env.el has been created)
 ;;
 ;; setup functions, setting up vxworks environment and some keys
 ;; Note that is relies on a vxworks6env.el file, which is specific
-;; to a Workbench installation. 
+;; to a Workbench installation.
 ;;
 (defun setup-vxworks6-env ()
   "Sets up the vxworks environment for building vxWorks 7 images"
   (interactive)
+  ;; check we have vxworks6env.el
+  (if (eq (file-exists-p "vxworks6env.el") nil)
+      (error "Need to create vxworks6env.el first. Call 'SPC : execute-wrenv'"))
   (if (eq vxworks-install-dir nil)
       (call-interactively 'vxworks-set-install-dir vxworks-install-dir))
   (setq default-directory vxworks-install-dir)
@@ -224,13 +276,16 @@ all the makefiles."
 
 ;; diab flag: -g -Xoptimized-debug-off
 (defun vxworks-compile-this-vsb-file ()
-  "Compiles this file (and any modifed files in this directory) in the VSB, 
-with debug enabled. Currently fixed for diab compiler."
+  "Compiles this file (and any modifed files in this directory) in the VSB,
+current for SMP, with debug enabled."
   (interactive)
   (if (eq vxworks-vsb-dir nil)
       (call-interactively 'vxworks-set-vsb vxworks-vsb-dir))
   (setq this-buffer-dir default-directory)
-  (setq compile-command (format "make CPU=%s ADDED_CFLAGS+=\"-g -O0\" TOOL=%s VSB_DIR=%s" vxworks-cpu vxworks-compiler vxworks-vsb-dir))
+  ;; this is without CPU variant and SMP
+  ;;(setq compile-command (format "make CPU=%s ADDED_CFLAGS+=\"-g -O0\" TOOL=%s VSB_DIR=%s" vxworks-cpu vxworks-compiler vxworks-vsb-dir))
+  ;; this is with CPU variant and SMP
+  (setq compile-command (format "make CPU=%s CPU_VARIANT=%s VXBUILD=SMP ADDED_CFLAGS+=\"-g -O0\" TOOL=%s VSB_DIR=%s" vxworks-cpu vxworks-cpu-variant vxworks-compiler vxworks-vsb-dir))
   (call-interactively 'compile)
   (cd this-buffer-dir))
 
